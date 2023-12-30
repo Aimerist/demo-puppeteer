@@ -13,11 +13,23 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
   for (let i = 0; i < 1; i++) {
     const { title: chapterTitle, url: chapterUrl } = chapters[i];
 
-    // 取得文章內容，並去除雜訊
-    const text = await getArticle(page, chapterUrl);
+    // 取得文章內容
+    const article = await getArticle(page, chapterUrl);
 
     // 儲存文章
-    saveArticle(chapterTitle, text);
+    saveArticle(chapterTitle, article);
+
+    // 同章節，下一頁的內容
+    const nextButtonSelector = await page.waitForSelector("#npbt");
+    if (nextButtonSelector) {
+      const nextUrl = await nextButtonSelector.evaluate((el) => el.href);
+      const nextArticle = await getArticle(page, nextUrl);
+
+      // 儲存文章
+      saveArticle(chapterTitle, nextArticle);
+    } else {
+      console.log("not next button");
+    }
   }
 
   // 關閉
@@ -50,7 +62,8 @@ async function getChapterList(page, bookUrl) {
 
 // 取得文章
 async function getArticle(page, chapterUrl) {
-  await page.goto(chapterUrl);
+  await page.goto(chapterUrl, { waitUntil: "networkidle2" });
+  // TODO: 官方文件已移出，問題參考 https://www.jianshu.com/p/31375cae68d1
   const contentSelector = await page.waitForSelector("#text");
   const content = await contentSelector?.evaluate((el) =>
     el.textContent
@@ -67,5 +80,5 @@ function saveArticle(title, article) {
   if (!fs.existsSync(outputPath)) {
     fs.mkdirSync(outputPath);
   }
-  fs.writeFileSync(`${outputPath}/${title}.txt`, article);
+  fs.writeFileSync(`${outputPath}/${title}.txt`, article, { flag: "a+" });
 }
