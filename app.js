@@ -10,26 +10,34 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
   // 取得章節清單
   const chapters = await getChapterList(page, bookUrl);
 
-  for (let i = 0; i < 1; i++) {
+  for (let i = 0; i < 2; i++) {
     const { title: chapterTitle, url: chapterUrl } = chapters[i];
 
-    // 取得文章內容
     const article = await getArticle(page, chapterUrl);
-
-    // 儲存文章
     saveArticle(chapterTitle, article);
 
     // 同章節，下一頁的內容
-    const nextButtonSelector = await page.waitForSelector("#npbt");
-    if (nextButtonSelector) {
-      const nextUrl = await nextButtonSelector.evaluate((el) => el.href);
-      const nextArticle = await getArticle(page, nextUrl);
+    const hasNextButton = async () => {
+      try {
+        const nextButtonSelector = await page.waitForSelector("#npbt", {
+          timeout: 1000,
+        });
+        return nextButtonSelector ? true : false;
+      } catch (e) {
+        if (e instanceof puppeteer.TimeoutError) {
+          console.log(`Oops! chapter.${i + 1}, next page button is not found!`);
+          return false;
+        }
+      }
+    };
 
-      // 儲存文章
-      saveArticle(chapterTitle, nextArticle);
-    } else {
-      console.log("not next button");
+    while (await hasNextButton()) {
+      const nextButtonSelector = await page.waitForSelector("#npbt");
+      const nextUrl = await nextButtonSelector.evaluate((el) => el.href);
+      const article = await getArticle(page, nextUrl);
+      saveArticle(chapterTitle, article);
     }
+    console.log(`Wow!! chapter.${i + 1}, It's last page!`);
   }
 
   // 關閉
