@@ -10,8 +10,9 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
   // 取得章節清單
   const chapters = await getChapterList(page, bookUrl);
 
-  for (let i = 0; i < 2; i++) {
-    const { title: chapterTitle, url: chapterUrl } = chapters[i];
+  for (let i = 0; i < 12; i++) {
+    const { url: chapterUrl } = chapters[i];
+    const chapterTitle = `Chapter_${i + 1}`;
 
     const article = await getArticle(page, chapterUrl);
     saveArticle(chapterTitle, article);
@@ -25,7 +26,7 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
         return nextButtonSelector ? true : false;
       } catch (e) {
         if (e instanceof puppeteer.TimeoutError) {
-          console.log(`Oops! chapter.${i + 1}, next page button is not found!`);
+          // console.log(`Oops! ${chapterTitle}, Next page button is not found!`);
           return false;
         }
       }
@@ -37,7 +38,7 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
       const article = await getArticle(page, nextUrl);
       saveArticle(chapterTitle, article);
     }
-    console.log(`Wow!! chapter.${i + 1}, It's last page!`);
+    console.log(`${chapterTitle} is Done!`);
   }
 
   // 關閉
