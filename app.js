@@ -8,7 +8,7 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
   const { page, browser } = await startBrowser();
 
   // 取得章節清單
-  const chapters = await getChapterList(page, bookUrl);
+  const chapters = await getChapterList(page);
   let chapterBeginNum = 0;
   const chapterEndNum = chapters.length;
 
@@ -83,13 +83,13 @@ async function startBrowser() {
     defaultViewport: { width: 800, height: 1200 },
   });
   const page = await browser.newPage();
+  await page.goto(bookUrl);
+
   return { page, browser };
 }
 
 // 取得章節目錄
-async function getChapterList(page, bookUrl) {
-  await page.goto(bookUrl);
-
+async function getChapterList(page) {
   const chapters = await page.evaluate(() => {
     return Array.from(document.querySelectorAll(".episode_li")).map((dom) => ({
       title: dom.textContent.replace(/\n/g, "").trim(),
@@ -99,7 +99,7 @@ async function getChapterList(page, bookUrl) {
   return chapters;
 }
 
-// 取得文章
+// 存取文章內容
 async function getArticle(page, chapterUrl) {
   await page.goto(chapterUrl, { waitUntil: "networkidle2" });
   // TODO: 官方文件已移出，問題參考 https://www.jianshu.com/p/31375cae68d1
