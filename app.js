@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 const fs = require("node:fs");
+const { exec } = require("child_process");
 const folderPath = "./Book";
 const bookUrl = "https://www.8book.com/novelbooks/194239/";
 
@@ -9,13 +10,14 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
 
   // 取得章節清單
   const chapters = await getChapterList(page);
+  let filenames = [];
   let chapterBeginNum = 0;
-  const chapterEndNum = chapters.length;
+  const chapterEndNum = 3; //chapters.length;
 
   // 1. 判斷是否有 Book 資料夾
   if (fs.existsSync(folderPath)) {
     // 2. 取得資料夾內所有檔案的名稱
-    const filenames = fs.readdirSync(folderPath);
+    filenames = fs.readdirSync(folderPath);
 
     // 3. 針對檔案名稱，取得最大數的章節序號
     const filenameMaxNum = filenames
@@ -27,7 +29,7 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
     chapterBeginNum = filenameMaxNum ? filenameMaxNum - 1 : 0;
 
     // 4. 刪除最大數的章節序號
-    const deleteFilePath = `${folderPath}/Chapter_${filenameMaxNum}.txt`;
+    const deleteFilePath = `${folderPath}/Chapter_${filenameMaxNum}.html`;
     try {
       fs.unlinkSync(deleteFilePath);
       console.log(`刪除 ${deleteFilePath} 檔案`);
@@ -71,6 +73,9 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
     console.log(`${chapterTitle} is Done!`);
   }
 
+  // 將各章節檔案轉換成 Epub 電子書格式
+  conventEpubWithTerminal(filenames);
+
   // 關閉
   await page.close();
   await browser.close();
@@ -105,7 +110,7 @@ async function getArticle(page, chapterUrl) {
   // TODO: 官方文件已移出，問題參考 https://www.jianshu.com/p/31375cae68d1
   const contentSelector = await page.waitForSelector("#text");
   const content = await contentSelector?.evaluate((el) =>
-    el.textContent
+    el.innerHTML
       .replace(/　　/g, "\r\n")
       .replace(/“/g, "「")
       .replace(/”/g, "」")
@@ -116,5 +121,28 @@ async function getArticle(page, chapterUrl) {
 
 // 儲存文章
 function saveArticle(title, article) {
-  fs.writeFileSync(`${folderPath}/${title}.txt`, article, { flag: "a+" });
+  fs.writeFileSync(`${folderPath}/${title}.html`, article, { flag: "a+" });
+}
+
+// 將各章節檔案轉換成 Epub 電子書格式
+function conventEpubWithTerminal(filenames) {
+  const goFolderCommand = `cd ${__dirname} && cd ${folderPath}`;
+  const pandocCommand = "pandoc -s -f html -t epub3 -o Book.epub";
+  const combinedFilenames = filenames.join(" ");
+  exec(
+    `${goFolderCommand} && ${pandocCommand} ${combinedFilenames}`,
+    (error, stderr, stdout) => {
+      if (error) {
+        console.log(`error: ${error.message}`);
+        return;
+      }
+      if (stderr) {
+        console.log(`stderr: ${stderr}`);
+        return;
+      }
+      if (stdout) {
+        console.log(`stdout: ${stdout}`);
+      }
+    }
+  );
 }
