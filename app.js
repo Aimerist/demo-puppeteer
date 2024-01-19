@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const { exec } = require("child_process");
 const folderPath = "./Book";
 const bookUrl = "https://www.8book.com/novelbooks/194239/";
+const bookName = "神隱";
 
 (async () => {
   // 啟動瀏覽器並開啟一個新的空白頁面
@@ -10,14 +11,13 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
 
   // 取得章節清單
   const chapters = await getChapterList(page);
-  let filenames = [];
   let chapterBeginNum = 0;
-  const chapterEndNum = 3; //chapters.length;
+  const chapterEndNum = chapters.length;
 
-  // 1. 判斷是否有 Book 資料夾
+  // 防呆機制 - 判斷是否有 Book 資料夾
   if (fs.existsSync(folderPath)) {
     // 2. 取得資料夾內所有檔案的名稱
-    filenames = fs.readdirSync(folderPath);
+    const filenames = fs.readdirSync(folderPath);
 
     // 3. 針對檔案名稱，取得最大數的章節序號
     const filenameMaxNum = filenames
@@ -74,7 +74,7 @@ const bookUrl = "https://www.8book.com/novelbooks/194239/";
   }
 
   // 將各章節檔案轉換成 Epub 電子書格式
-  conventEpubWithTerminal(filenames);
+  conventEpubWithTerminal();
 
   // 關閉
   await page.close();
@@ -104,16 +104,18 @@ async function getChapterList(page) {
   return chapters;
 }
 
-// 存取文章內容
+// 取得文章內容
 async function getArticle(page, chapterUrl) {
   await page.goto(chapterUrl, { waitUntil: "networkidle2" });
   // TODO: 官方文件已移出，問題參考 https://www.jianshu.com/p/31375cae68d1
   const contentSelector = await page.waitForSelector("#text");
   const content = await contentSelector?.evaluate((el) =>
-    el.innerHTML
-      .replace(/　　/g, "\r\n")
+    el.textContent
+      .replace(/第(\S+)章/, "<h1>第$1章</h1>")
+      .replace(/(?!^)　　/g, "<br /><br />")
       .replace(/“/g, "「")
       .replace(/”/g, "」")
+      .replace(/window._[\s\S]+?}\);/g, "")
       .trim()
   );
   return content;
@@ -125,10 +127,27 @@ function saveArticle(title, article) {
 }
 
 // 將各章節檔案轉換成 Epub 電子書格式
-function conventEpubWithTerminal(filenames) {
+function conventEpubWithTerminal() {
+  const ePubBook = `${bookName}.epub`;
+  if (fs.existsSync(`${folderPath}/${ePubBook}`)) {
+    fs.unlinkSync(`${folderPath}/${ePubBook}`);
+  }
+  fs.writeFileSync(
+    `${folderPath}/Chapter_0.html`,
+    `<head><title>${bookName}</title></head>`
+  );
+
+  const filenames = fs.readdirSync(folderPath);
   const goFolderCommand = `cd ${__dirname} && cd ${folderPath}`;
-  const pandocCommand = "pandoc -s -f html -t epub3 -o Book.epub";
-  const combinedFilenames = filenames.join(" ");
+  const pandocCommand = `pandoc -f html -t epub3 -o ${ePubBook}`;
+  const combinedFilenames = filenames
+    .sort((a, b) => {
+      const numberA = parseInt(a.match(/\d+/)[0], 10);
+      const numberB = parseInt(b.match(/\d+/)[0], 10);
+      return numberA - numberB;
+    })
+    .join(" ");
+
   exec(
     `${goFolderCommand} && ${pandocCommand} ${combinedFilenames}`,
     (error, stderr, stdout) => {
