@@ -14,33 +14,8 @@ const bookName = "神隱";
   let chapterBeginNum = 0;
   const chapterEndNum = chapters.length;
 
-  // 防呆機制 - 判斷是否有 Book 資料夾
-  if (fs.existsSync(folderPath)) {
-    // 2. 取得資料夾內所有檔案的名稱
-    const filenames = fs.readdirSync(folderPath);
-
-    // 3. 針對檔案名稱，取得最大數的章節序號
-    const filenameMaxNum = filenames
-      .map((filename) => {
-        const match = filename.match(/\d+/);
-        return match ? parseInt(match[0], 10) : 0;
-      })
-      .reduce((max, num) => Math.max(max, num), 0);
-    chapterBeginNum = filenameMaxNum ? filenameMaxNum - 1 : 0;
-
-    // 4. 刪除最大數的章節序號
-    const deleteFilePath = `${folderPath}/Chapter_${filenameMaxNum}.html`;
-    try {
-      fs.unlinkSync(deleteFilePath);
-      console.log(`刪除 ${deleteFilePath} 檔案`);
-    } catch (err) {
-      console.error(`查無 ${deleteFilePath} 檔案`);
-    }
-  } else {
-    fs.mkdirSync(folderPath);
-    console.log(`建立 Book 資料夾`);
-    chapterBeginNum = 0;
-  }
+  // 防呆機制
+  chapterBeginNum = recoverFromPreviousChapter();
 
   for (let i = chapterBeginNum; i < chapterEndNum; i++) {
     const { url: chapterUrl } = chapters[i];
@@ -80,6 +55,42 @@ const bookName = "神隱";
   await page.close();
   await browser.close();
 })();
+
+// 防呆機制
+function recoverFromPreviousChapter() {
+  let chapterBeginNum = 0;
+
+  /* 防呆機制 - 判斷有 Book 資料夾 */
+  if (fs.existsSync(folderPath)) {
+    /* A. 取得資料夾內所有檔案的名稱 */
+    const filenames = fs.readdirSync(folderPath);
+
+    /* B. 針對檔案名稱，取得最大數的章節序號 */
+    const filenameMaxNum = filenames
+      .map((filename) => {
+        const match = filename.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
+      })
+      .reduce((max, num) => Math.max(max, num), 0);
+    chapterBeginNum = filenameMaxNum ? filenameMaxNum - 1 : 0;
+
+    /* C. 刪除最大數的章節序號 */
+    const deleteFilePath = `${folderPath}/Chapter_${filenameMaxNum}.html`;
+    try {
+      fs.unlinkSync(deleteFilePath);
+      console.log(`刪除 ${deleteFilePath} 檔案`);
+    } catch (err) {
+      console.error(`查無 ${deleteFilePath} 檔案`);
+    }
+  } else {
+    /* 防呆機制 - 判斷沒有 Book 資料夾 */
+    /* A. 建立 Book 資料夾 */
+    fs.mkdirSync(folderPath);
+    console.log(`建立 Book 資料夾`);
+    chapterBeginNum = 0;
+  }
+  return chapterBeginNum;
+}
 
 // 啟動瀏覽器
 async function startBrowser() {
